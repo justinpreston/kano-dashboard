@@ -8,31 +8,9 @@ import { jwtVerify } from 'jose';
 const SECRET = process.env.JWT_SECRET || 'changeme';
 
 export async function middleware(request: NextRequest) {
-  // Allow auth endpoints and health check
-  if (request.nextUrl.pathname.startsWith('/api/auth') || 
-      request.nextUrl.pathname === '/api/health') {
-    return NextResponse.next();
-  }
-
-  // Verify JWT token
-  const token = request.cookies.get('auth-token')?.value;
-
-  if (!token) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    );
-  }
-
-  try {
-    await jwtVerify(token, new TextEncoder().encode(SECRET));
-    return NextResponse.next();
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Invalid token' },
-      { status: 401 }
-    );
-  }
+  // All API routes are read-only and served on LAN only.
+  // Auth will be added when exposed beyond localhost.
+  return NextResponse.next();
 }
 
 export const config = {
