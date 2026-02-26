@@ -1,15 +1,11 @@
 /**
- * Auth verification middleware
+ * Middleware — currently pass-through for LAN-only deployment.
+ * Add auth verification here when exposing beyond local network.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
+import { NextResponse } from 'next/server';
 
-const SECRET = process.env.JWT_SECRET || 'changeme';
-
-export async function middleware(request: NextRequest) {
-  // All API routes are read-only and served on LAN only.
-  // Auth will be added when exposed beyond localhost.
+export async function middleware() {
   return NextResponse.next();
 }
 

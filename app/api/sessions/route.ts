@@ -75,12 +75,11 @@ export async function GET() {
       note: 'Sessions derived from cron job run logs. Main interactive sessions are not tracked here.',
       timestamp: new Date().toISOString(),
     });
-  } catch (err) {
+  } catch {
     return NextResponse.json({
       available: false,
       sessions: [],
       total: 0,
-      error: String(err),
       timestamp: new Date().toISOString(),
     });
   }
