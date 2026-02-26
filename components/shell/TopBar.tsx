@@ -1,13 +1,33 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search } from "lucide-react";
+import { Search, Sun, Moon } from "lucide-react";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationDropdown } from "@/components/NotificationDropdown";
 import { BRANDING } from "@/config/branding";
 
+function useTheme() {
+  const [theme, setThemeState] = useState<"dark" | "light">("dark");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("kano-theme") as "dark" | "light" | null;
+    const initial = saved || "dark";
+    setThemeState(initial);
+    document.documentElement.setAttribute("data-theme", initial);
+  }, []);
+
+  const setTheme = (t: "dark" | "light") => {
+    setThemeState(t);
+    document.documentElement.setAttribute("data-theme", t);
+    localStorage.setItem("kano-theme", t);
+  };
+
+  return { theme, toggle: () => setTheme(theme === "dark" ? "light" : "dark") };
+}
+
 export function TopBar() {
   const [showSearch, setShowSearch] = useState(false);
+  const { theme, toggle } = useTheme();
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -113,6 +133,20 @@ export function TopBar() {
             >
               Search... ⌘K
             </span>
+          </button>
+
+          {/* Theme Toggle */}
+          <button
+            onClick={toggle}
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ backgroundColor: "var(--surface-elevated)" }}
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {theme === "dark" ? (
+              <Sun style={{ width: "16px", height: "16px", color: "var(--text-secondary)" }} />
+            ) : (
+              <Moon style={{ width: "16px", height: "16px", color: "var(--text-secondary)" }} />
+            )}
           </button>
 
           {/* Notifications Dropdown */}
