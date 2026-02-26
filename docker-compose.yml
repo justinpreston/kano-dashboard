@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  kano-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kano-dashboard:latest
+    container_name: kano-dashboard
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      # Read-only mount of OpenClaw workspace
+      - ~/clawd:/data:ro
+      # Tmpfs for Next.js cache
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 100M
+    environment:
+      - NODE_ENV=production
+      - OPENCLAW_WORKSPACE=/data
+      - JWT_SECRET=${JWT_SECRET:-changeme-generate-a-real-secret}
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-changeme}
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - kano-net
+
+networks:
+  kano-net:
+    driver: bridge
