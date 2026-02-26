@@ -28,12 +28,15 @@ export function WeeklyCalendar() {
     fetch("/api/crons")
       .then((res) => res.json())
       .then((data) => {
-        const normalized = (data || []).map((job: any) => ({
-          id: job.id,
-          name: job.label || "Cron Job",
-          schedule: job.schedule,
-          nextRun: job.nextRun,
-        }));
+        const jobs = data.jobs || [];
+        const normalized = jobs
+          .filter((j: any) => j.enabled && j.nextRun)
+          .map((j: any) => ({
+            id: j.id,
+            name: j.name || "Cron Job",
+            schedule: j.schedule?.expr || j.schedule?.kind || "",
+            nextRun: j.nextRun,
+          }));
         setTasks(normalized);
       })
       .catch(() => setTasks([]));
