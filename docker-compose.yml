@@ -8,11 +8,14 @@ services:
     image: kano-dashboard:latest
     container_name: kano-dashboard
     restart: unless-stopped
+    user: "1000:1000"
     ports:
       - "3100:3100"
     volumes:
       # Read-only mount of OpenClaw workspace
       - ~/clawd:/data:ro
+      # Read-only mount of OpenClaw state directory
+      - ~/.openclaw:/openclaw-state:ro
       # Tmpfs for Next.js cache
       - type: tmpfs
         target: /tmp
@@ -21,6 +24,7 @@ services:
     environment:
       - NODE_ENV=production
       - OPENCLAW_WORKSPACE=/data
+      - OPENCLAW_STATE=/openclaw-state
       - JWT_SECRET=${JWT_SECRET:-changeme-generate-a-real-secret}
       - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-changeme}
     read_only: true

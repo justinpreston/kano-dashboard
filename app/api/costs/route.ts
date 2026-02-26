@@ -1,52 +1,25 @@
-/**
- * GET /api/costs
- * Read-only usage and cost data
- */
-
 import { NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
-import * as path from 'path';
 
-const WORKSPACE = process.env.OPENCLAW_WORKSPACE || '/data';
+export const dynamic = 'force-dynamic';
 
+/**
+ * Costs API — Currently no usage tracking DB exists.
+ * Gateway.db is 0 bytes. This returns a placeholder until
+ * OpenClaw adds proper usage tracking.
+ * 
+ * TODO: Read from gateway.db or OpenClaw API when available.
+ */
 export async function GET() {
-  try {
-    const dbPath = path.join(WORKSPACE, 'gateway.db');
-    const db = new Database(dbPath, { readonly: true, fileMustExist: true });
-
-    const usage = db.prepare(`
-      SELECT 
-        model,
-        SUM(prompt_tokens + completion_tokens) as tokens,
-        SUM(cost) as cost
-      FROM usage
-      GROUP BY model
-      ORDER BY cost DESC
-    `).all();
-
-    const totals = db.prepare(`
-      SELECT 
-        SUM(prompt_tokens + completion_tokens) as total_tokens,
-        SUM(cost) as total_cost
-      FROM usage
-    `).get() as any;
-
-    db.close();
-
-    return NextResponse.json({
-      totalCost: totals?.total_cost || 0,
-      totalTokens: totals?.total_tokens || 0,
-      breakdown: usage,
-    });
-  } catch (error) {
-    console.error('Cost read error:', error);
-    return NextResponse.json(
-      {
-        totalCost: 0,
-        totalTokens: 0,
-        breakdown: [],
-      },
-      { status: 200 }
-    );
-  }
+  return NextResponse.json({
+    available: false,
+    message: 'No usage tracking database found. Cost tracking will be available when OpenClaw exposes session usage data.',
+    costs: {
+      today: null,
+      thisWeek: null,
+      thisMonth: null,
+      byModel: [],
+      byJob: [],
+    },
+    timestamp: new Date().toISOString(),
+  });
 }

@@ -1,74 +1,87 @@
-/**
- * GET /api/system
- * Read-only system stats from /proc (no shell calls)
- */
-
 import { NextResponse } from 'next/server';
-import * as fs from 'fs/promises';
-import * as os from 'os';
+import { readFile } from 'fs/promises';
+
+export const dynamic = 'force-dynamic';
+
+async function readProc(path: string): Promise<string> {
+  try {
+    return await readFile(path, 'utf-8');
+  } catch {
+    return '';
+  }
+}
 
 export async function GET() {
   try {
-    // CPU usage from /proc/stat
-    const stat1 = await fs.readFile('/proc/stat', 'utf8');
-    await new Promise(resolve => setTimeout(resolve, 100));
-    const stat2 = await fs.readFile('/proc/stat', 'utf8');
-    
-    const cpuLine1 = stat1.split('\n')[0].split(/\s+/).slice(1).map(Number);
-    const cpuLine2 = stat2.split('\n')[0].split(/\s+/).slice(1).map(Number);
-    
-    const idle1 = cpuLine1[3];
-    const idle2 = cpuLine2[3];
-    const total1 = cpuLine1.reduce((a, b) => a + b, 0);
-    const total2 = cpuLine2.reduce((a, b) => a + b, 0);
-    
-    const totalDiff = total2 - total1;
-    const idleDiff = idle2 - idle1;
-    const cpuUsage = ((totalDiff - idleDiff) / totalDiff) * 100;
+    const [meminfo, uptime, loadavg, stat] = await Promise.all([
+      readProc('/proc/meminfo'),
+      readProc('/proc/uptime'),
+      readProc('/proc/loadavg'),
+      readProc('/proc/stat'),
+    ]);
 
-    // Memory from /proc/meminfo
-    const meminfo = await fs.readFile('/proc/meminfo', 'utf8');
-    const memLines = meminfo.split('\n');
-    const memTotal = parseInt(memLines.find(l => l.startsWith('MemTotal:'))?.split(/\s+/)[1] || '0') * 1024;
-    const memAvailable = parseInt(memLines.find(l => l.startsWith('MemAvailable:'))?.split(/\s+/)[1] || '0') * 1024;
+    // Parse memory
+    const memTotal = parseInt(meminfo.match(/MemTotal:\s+(\d+)/)?.[1] || '0') * 1024;
+    const memAvailable = parseInt(meminfo.match(/MemAvailable:\s+(\d+)/)?.[1] || '0') * 1024;
     const memUsed = memTotal - memAvailable;
 
-    // Disk from /proc/mounts + statvfs (safe syscall, no shell)
-    const mounts = await fs.readFile('/proc/mounts', 'utf8');
-    const rootMount = mounts.split('\n').find(l => l.includes(' / '));
-    
-    // Use df via Node's os module or read from /proc/diskstats
-    // For simplicity, use os.totalmem as placeholder
-    // In production, you'd use a proper statvfs binding
-    const diskTotal = os.totalmem() * 10; // Placeholder
-    const diskUsed = diskTotal * 0.42; // Placeholder
+    // Parse uptime
+    const uptimeSecs = parseFloat(uptime.split(' ')[0] || '0');
 
-    // Uptime from /proc/uptime
-    const uptimeData = await fs.readFile('/proc/uptime', 'utf8');
-    const uptime = Math.floor(parseFloat(uptimeData.split(' ')[0]));
+    // Parse load average
+    const [load1, load5, load15] = (loadavg.split(' ').slice(0, 3)).map(Number);
+
+    // Parse CPU usage from /proc/stat
+    const cpuLine = stat.split('\n')[0];
+    const cpuParts = cpuLine?.split(/\s+/).slice(1).map(Number) || [];
+    const idle = cpuParts[3] || 0;
+    const total = cpuParts.reduce((a, b) => a + b, 0);
+    const cpuPercent = total > 0 ? ((total - idle) / total * 100) : 0;
+
+    // Disk usage — read from /proc/mounts-adjacent info (best effort)
+    let diskTotal = 0, diskUsed = 0, diskFree = 0;
+    try {
+      const { statfsSync } = await import('fs');
+      const stats = (statfsSync as (path: string) => { blocks: number; bsize: number; bavail: number })('/');
+
+      diskTotal = stats.blocks * stats.bsize;
+      diskFree = stats.bavail * stats.bsize;
+      diskUsed = diskTotal - diskFree;
+    } catch {
+      // statfsSync may not be available in container
+    }
 
     return NextResponse.json({
       cpu: {
-        usage: Math.round(cpuUsage),
-        cores: os.cpus().length,
+        percent: Math.round(cpuPercent * 10) / 10,
+        load: { '1m': load1, '5m': load5, '15m': load15 },
       },
       memory: {
-        used: memUsed,
         total: memTotal,
-        percentage: Math.round((memUsed / memTotal) * 100),
+        used: memUsed,
+        available: memAvailable,
+        percent: memTotal > 0 ? Math.round(memUsed / memTotal * 1000) / 10 : 0,
       },
       disk: {
-        used: diskUsed,
         total: diskTotal,
-        percentage: Math.round((diskUsed / diskTotal) * 100),
+        used: diskUsed,
+        free: diskFree,
+        percent: diskTotal > 0 ? Math.round(diskUsed / diskTotal * 1000) / 10 : 0,
       },
-      uptime,
+      uptime: {
+        seconds: Math.round(uptimeSecs),
+        formatted: formatUptime(uptimeSecs),
+      },
+      timestamp: new Date().toISOString(),
     });
-  } catch (error) {
-    console.error('System stats error:', error);
-    return NextResponse.json(
-      { error: 'Failed to read system stats' },
-      { status: 500 }
-    );
+  } catch (err) {
+    return NextResponse.json({ error: String(err) }, { status: 500 });
   }
+}
+
+function formatUptime(secs: number): string {
+  const d = Math.floor(secs / 86400);
+  const h = Math.floor((secs % 86400) / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  return `${d}d ${h}h ${m}m`;
 }

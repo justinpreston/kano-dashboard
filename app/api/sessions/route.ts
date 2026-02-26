@@ -1,49 +1,18 @@
-/**
- * GET /api/sessions
- * Read-only sessions from OpenClaw SQLite DB
- */
-
 import { NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
-import * as path from 'path';
 
-const WORKSPACE = process.env.OPENCLAW_WORKSPACE || '/data';
+export const dynamic = 'force-dynamic';
 
+/**
+ * Sessions API — OpenClaw tracks sessions in-memory only.
+ * No file-based session store exists. Returns placeholder.
+ * 
+ * TODO: Proxy to OpenClaw gateway API when internal API is available.
+ */
 export async function GET() {
-  try {
-    const dbPath = path.join(WORKSPACE, 'gateway.db');
-    const db = new Database(dbPath, { readonly: true, fileMustExist: true });
-
-    const sessions = db.prepare(`
-      SELECT 
-        key,
-        label,
-        created_at,
-        updated_at,
-        message_count,
-        token_usage
-      FROM sessions
-      ORDER BY updated_at DESC
-      LIMIT 100
-    `).all();
-
-    db.close();
-
-    return NextResponse.json(
-      sessions.map((s: any) => ({
-        id: s.key,
-        label: s.label || 'Unnamed',
-        created: s.created_at,
-        lastActivity: s.updated_at,
-        messageCount: s.message_count || 0,
-        tokenUsage: s.token_usage || 0,
-      }))
-    );
-  } catch (error) {
-    console.error('Sessions read error:', error);
-    return NextResponse.json(
-      { error: 'Failed to read sessions' },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({
+    available: false,
+    message: 'Sessions are tracked in-memory by OpenClaw. No file-based session data available.',
+    sessions: [],
+    timestamp: new Date().toISOString(),
+  });
 }

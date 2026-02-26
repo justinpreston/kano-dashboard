@@ -24,7 +24,7 @@ FROM node:22-alpine AS runtime
 
 # Security: Run as non-root
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+    adduser -S nodejs -u 1001 -G nodejs
 
 WORKDIR /app
 
@@ -33,8 +33,8 @@ COPY --from=builder --chown=nodejs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nodejs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nodejs:nodejs /app/public ./public
 
-# Read-only workspace mount point
-RUN mkdir -p /data && chown nodejs:nodejs /data
+# Read-only workspace mount points
+RUN mkdir -p /data /openclaw-state && chown nodejs:nodejs /data /openclaw-state
 
 USER nodejs
 
